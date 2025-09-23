@@ -1,7 +1,9 @@
 module IPTW
 
-using DataFrames, GLM, StatsModels
+using DataFrames, GLM, StatsModels, StatsBase
+using Statistics
 using ..Helpers: check_link
+using GLM: LogitLink, ProbitLink, CLogLogLink
 
 export iptw, IPTWResult
 
@@ -10,6 +12,7 @@ struct IPTWResult
     model::StatisticalModel
     type::String
     truncate::Union{Nothing, Vector{Int}}
+    treatment::Symbol
 end
 
 function iptw(data::DataFrame,formula::FormulaTerm ;truncate::Union{Nothing, AbstractVector{Int}}=nothing,type::String="Unstabilized",link::Link=LogitLink())
@@ -18,9 +21,13 @@ function iptw(data::DataFrame,formula::FormulaTerm ;truncate::Union{Nothing, Abs
     df=copy(data)
     ## extract treatment from left side function
     treatment=formula.lhs.sym
-    # make sure input are in the correct format
-    @assert all(unique(df[!, treatment]) .∈ [0, 1]) "Treatment must be coded as 0/1"
-    @assert type ∈ ["Unstabilized", "Stabilized"] "Type must be 'Unstabilized' or 'Stabilized'"
+    # make sure treatment is binary
+    treatment_col=df[!,treatment]
+    vals=unique(df[!,treatment]); @assert all(v->v==0||v==1,vals) "Treatment must be coded as 0/1."
+    @assert !any(ismissing,treatment_col) "Treatment column contains missing values."
+    if eltype(treatment_col)<:Bool df[!,treatment]=Int.(treatment_col) end
+    if eltype(treatment_col)<:AbstractFloat vals=unique(treatment_col); @assert all(v->v in (0.0,1.0),vals) "Treatment must be 0/1."; df[!,treatment]=Int.(treatment_col) end
+   # check that the values given for percentiles are correct
     if truncate !== nothing
         @assert length(truncate) == 2 "Truncate must be a 2-element vector"
         @assert all(0 .<= truncate .<= 100) "Truncate must be in percentage points (0–100)"
@@ -49,7 +56,7 @@ function iptw(data::DataFrame,formula::FormulaTerm ;truncate::Union{Nothing, Abs
         df.weight = clamp.(df.weight, percentile(df.weight,low), percentile(df.weight,high))
     end
     # return object
-    return IPTWResult(df, trt_model, type, truncate)
+    return IPTWResult(df, trt_model, type, truncate,treatment)
 end
 
 end
