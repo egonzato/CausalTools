@@ -9,9 +9,9 @@ function Plots.plot(result::IPTWResult)
     @df df density(:weight,
                      group=df[!,treat_col],
                      legend=:topright,
-                     xlabel="IPTW weight",
+                     xlabel="Weight",
                      ylabel="Density",
-                     title="Distribution of IPTW Weights by Treatment")
+                     title="Distribution of weights by treatment")
 end
 
 end
