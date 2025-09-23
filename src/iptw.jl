@@ -3,6 +3,15 @@ module IPTW
 using DataFrames, GLM, StatsModels
 using ..Helpers: check_link
 
+export iptw, IPTWResult
+
+struct IPTWResult
+    dataset::DataFrame
+    model::StatisticalModel
+    type::String
+    truncate::Union{Nothing, Vector{Int}}
+end
+
 function iptw(data::DataFrame,formula::FormulaTerm ;truncate::Union{Nothing, AbstractVector{Int}}=nothing,type::String="Unstabilized",link::Link=LogitLink())
     # build formula
     ## copy dataset
@@ -23,7 +32,7 @@ function iptw(data::DataFrame,formula::FormulaTerm ;truncate::Union{Nothing, Abs
     # calculate probabilities
     trt_model=glm(formula,df,Binomial(),link)
     predicted=predict(trt_model)
-    # define weithgs based on "type" argument
+    # define weights based on "type" argument
     if type=="Unstabilized"
         weight = (df[!, treatment] ./ predicted) .+ ((1 .- df[!, treatment]) ./ (1 .- predicted))
     elseif type=="Stabilized"
@@ -40,5 +49,7 @@ function iptw(data::DataFrame,formula::FormulaTerm ;truncate::Union{Nothing, Abs
         df.weight = clamp.(df.weight, percentile(df.weight,low), percentile(df.weight,high))
     end
     # return object
-    return (dataset=df, model=trt_model)
+    return IPTWResult(df, trt_model, type, truncate)
+end
+
 end
