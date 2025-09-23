@@ -1,16 +1,27 @@
-using GLM, DataFrames, Statistics, StatsBase, StatsModels
+module IPTW
 
-function iptw(data::DataFrame,formula::FormulaTerm ;truncate::Union{Nothing, AbstractVector{Int}}=nothing,type::String="Unstabilized")
-    # make sure input are in the correct format
+using DataFrames, GLM, StatsModels
+using ..Helpers: check_link
+
+function iptw(data::DataFrame,formula::FormulaTerm ;truncate::Union{Nothing, AbstractVector{Int}}=nothing,type::String="Unstabilized",link::Link=LogitLink())
     # build formula
     ## copy dataset
     df=copy(data)
-    ## paste treatment and confounders together
+    ## extract treatment from left side function
     treatment=formula.lhs.sym
+    # make sure input are in the correct format
+    @assert all(unique(df[!, treatment]) .∈ [0, 1]) "Treatment must be coded as 0/1"
+    @assert type ∈ ["Unstabilized", "Stabilized"] "Type must be 'Unstabilized' or 'Stabilized'"
+    if truncate !== nothing
+        @assert length(truncate) == 2 "Truncate must be a 2-element vector"
+        @assert all(0 .<= truncate .<= 100) "Truncate must be in percentage points (0–100)"
+    end
     # treated units
     ptrt=mean(df[!,treatment])
+    # check that the link function given in input is among the ones available
+    check_link(link)
     # calculate probabilities
-    trt_model=glm(formula,df,Binomial(),LogitLink())
+    trt_model=glm(formula,df,Binomial(),link)
     predicted=predict(trt_model)
     # define weithgs based on "type" argument
     if type=="Unstabilized"
