@@ -1,3 +1,23 @@
+
 # CausalTools
 
-[![Build Status](https://github.com/egonzato/CausalTools.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/egonzato/CausalTools.jl/actions/workflows/CI.yml?query=branch%3Amaster)
+CausalTools is a Julia package for causal inference, including:
+
+* iptw: Inverse Probability of Treatment Weighting
+
+## Installation
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/egonzato/CausalTools")
+```
+
+# Load data
+
+```
+using CausalTools, CSV, DataFrames
+
+data = CSV.read("lalonde.csv", DataFrame)
+iptw_obj = iptw(data, @formula(treat ~ age + race), truncate=[1,99], type="Stabilized")
+plot(iptw_obj)
+```
