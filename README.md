@@ -1,4 +1,3 @@
-
 # CausalTools
 
 CausalTools is a Julia package for causal inference, including:
@@ -16,7 +15,8 @@ Pkg.add(url="https://github.com/egonzato/CausalTools")
 
 ```
 using CausalTools, CSV, DataFrames
-data = CSV.read("lalonde.csv", DataFrame)
+path = joinpath(dirname(pathof(CausalTools)), "..", "data", "df.csv")
+data = CSV.read(path, DataFrame)
 ```
 
 # Use functions
@@ -24,11 +24,12 @@ data = CSV.read("lalonde.csv", DataFrame)
 ## iptw
 
 ```
-iptw_obj = iptw(data, @formula(treat ~ age + race), truncate=[1,99], type="Stabilized")
+object_iptw=iptw(dataset,@formula(treatment~age+smoke+sex+cholesterol),
+		 truncate=[1,99],type="Stabilized")
 ```
 
 Plot weights in the two treatment groups
 
 ```
-plot(iptw_obj)
+plot(object_iptw)
 ```
