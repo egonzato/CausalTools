@@ -23,11 +23,11 @@ function iptw(data::DataFrame,formula::FormulaTerm ;truncate::Union{Nothing, Abs
     treatment=formula.lhs.sym
     # make sure treatment is binary
     treatment_col=df[!,treatment]
-    vals=unique(df[!,treatment]); @assert all(v->v==0||v==1,vals) "Treatment must be coded as 0/1."
-    @assert !any(ismissing,treatment_col) "Treatment column contains missing values."
-    if eltype(treatment_col)<:Bool df[!,treatment]=Int.(treatment_col) end
-    if eltype(treatment_col)<:AbstractFloat vals=unique(treatment_col); @assert all(v->v in (0.0,1.0),vals) "Treatment must be 0/1."; df[!,treatment]=Int.(treatment_col) end
-   # check that the values given for percentiles are correct
+    @assert !any(ismissing, treatment_col) "Treatment column contains missing values."
+    @assert all(v -> v in (0,1), treatment_col) "Treatment must be coded as 0/1."
+    # check the string given in input for type of weights
+    @assert type == "Stabilized" || type == "Unstabilized" "Invalid type argument: must be 'Stabilized' or 'Unstabilized'"
+    # check that the values given for percentiles are correct
     if truncate !== nothing
         @assert length(truncate) == 2 "Truncate must be a 2-element vector"
         @assert all(0 .<= truncate .<= 100) "Truncate must be in percentage points (0–100)"

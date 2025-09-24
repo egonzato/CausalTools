@@ -2,7 +2,7 @@ module Helpers
 export check_link
 
 using GLM
-using Logging   # for @warn
+using Logging 
 
 function check_link(link)
     allowed_links = [LogitLink, ProbitLink]
