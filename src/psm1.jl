@@ -22,29 +22,35 @@ struct psmResult
     # method, greedy or optimal
 end
 
-function psm(data::DataFrame, formula::FormulaTerm; distance::Nothing="Logistic",method::Nothing="Greedy", caliper::Union{Nothing,Integer,Float64}=nothing,ratio::Integer=1,replacement::Bool=false,link::Link=LogitLink())
+function psm(data::DataFrame, formula::FormulaTerm; distance::Nothing="logistic",method::Nothing="greedy", caliper::Union{Nothing,Integer,Float64}=nothing,ratio::Integer=1,replacement::Bool=false,link::Link=LogitLink())
+    # logistic or mahalabonis in distance argument
+
+    # greedy or optimal in method argument
+
+    # expit or probability in scale metrics
+ 
+    # make sure caliper is between 0 and 1
+
     # copy data
     df=copy(data)
     # define id
     df[!,:id]=1:nrow(df)
     # extract treatment from left side function
     treatment=formula.lhs.sym
-    # make sure caliper is between 0 and 1
-
     # make sure treatment is binary
     treatment_col=df[!,treatment]
     @assert !any(ismissing, treatment_col) "Treatment column contains missing values."
     @assert all(v -> v in (0,1), treatment_col) "Treatment must be coded as 0/1."
     # define distance to match on, whether mahalabonis or probability
-    if distance=="Logistics"
+    if distance=="logistic"
         trt_model=glm(formula,df,Binomial(),link)
         df.distance=predict(trt_model)
-        df.expit=log.((df.probability) ./ (1 .- df.probability))
-    elseif  distance=="Mahalabonis"
+        df.expit=log.((df.distance) ./ (1 .- df.distance))
+    elseif  distance=="mahalabonis"
     end
     # divide initial dataset into treated and untreated
-    untrt=data[data[!,exposure].==false,:]
-    trt=data[data[!,exposure] .==true,:]
+    untrt=data[data[!,treatment].==false,:]
+    trt=data[data[!,treatment] .==true,:]
     # define index for untrt and trt to delete from dataset those that went throught the loop
     untrt[!, :index] = 1:nrow(untrt)
     trt[!, :index] = 1:nrow(trt)
@@ -69,16 +75,22 @@ function psm(data::DataFrame, formula::FormulaTerm; distance::Nothing="Logistic"
             untrti=copy(untrt)
             untrti.diff=abs.(trt.distance[i] .- untrti.distance)
             # if caliper is not equal to nothing, then filter
-            if caliper==nothing
-                
+            if caliper!=nothing && distance=="logistic"
+                if scale=="expit"
+                    untrti=untrti[untrti.expit .<= caliper, :]
+                elseif scale=="probability"
+                    untrti=untrti[untrti.distance .<= caliper, :]
+                end
+            elseif caliper!=nothing && distance=="mahalabonis"
             end 
-            # 
-            if nrow(untrti)!=0 && nrow(untrti)<ratio
-                println("Warning: Not enough matches for treated unit $i")
-                push!(lowerthanratio,i)
-                append!(clustered, DataFrame(cluster=[i],id=[trt.id[i]]))
-                continue
-            end
+            # fill unmatched vector with unmatched units
+            #if nrow(untrti)!=0 && nrow(untrti)<1
+            #    println("Warning: Not enough matches for treated unit $i")
+            #    push!(lowerthanratio,i)
+            #    append!(clustered, DataFrame(cluster=[i],id=[trt.id[i]]))
+            #    continue
+            #end
+            # fill unmatched vector with unmatched units
             if nrow(untrti) ==0
                 println("Warning: No matches for treated unit $i")
                 push!(unmatched,i)
@@ -100,5 +112,5 @@ function psm(data::DataFrame, formula::FormulaTerm; distance::Nothing="Logistic"
     end
     # merge clustered dataset to initial DataFrame
     matched=innerjoin(clustered,data,on=:id,makeunique=true)
-    return matched, unmatched, lowerthanratio
+    return psmResult(matched, trt_model)
 end
