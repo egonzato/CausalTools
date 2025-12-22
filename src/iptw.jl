@@ -47,7 +47,7 @@ module IPTW
 using DataFrames, GLM, StatsModels, StatsBase
 using Statistics
 using ..Helpers: check_link
-using GLM: LogitLink, ProbitLink, CLogLogLink
+using GLM
 
 export iptw, IPTWResult
 

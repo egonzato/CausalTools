@@ -39,21 +39,18 @@ struct PSMResult
     ratio::Int
     replacement::Bool
 end
-
 # probabilities
 function calculate_probabilities(dataset, formula)
     model = glm(formula, dataset, Binomial())
     dataset.distance = predict(model)
     return dataset
 end
-
 # logit
 function calculate_logit(dataset, formula)
     model = glm(formula, dataset, Binomial())
     dataset.distance = logit.(predict(model))
     return dataset
 end
-
 # mahalanobis
 function calculate_mahalanobis(x, Y, Σ_inv)
     n = size(Y, 1)
@@ -86,7 +83,7 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
     # distance must be "logit" or "probability"
     allowed_distances = ["logit", "probability","mahalanobis"]
     if !(distance in allowed_distances)
-        throw(ArgumentError("`distance` must be either \"logit\" or \"probability\". Got: $distance"))
+        throw(ArgumentError("`distance` must be one of $allowed_distances. Got: $distance"))
     end
     # caliper must be ≥ 0
     if !(isa(caliper, Real) && caliper ≥ 0)
@@ -100,6 +97,22 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
     # seed must be an integer
     if !(isa(seed, Integer))
         throw(ArgumentError("`seed` must be an integer. Got: $seed"))
+    end
+    # check forid column
+    if :id ∉ names(dataset)
+        dataset.id = 1:nrow(dataset)
+    end
+    # treatment column exists
+    #if treatment ∉ names(dataset)
+    #    throw(ArgumentError("Treatment '$treatment' not found in dataset"))
+    #end
+    # covariates exist
+    if distance == "mahalanobis"
+        covars = [t.sym for t in formula.rhs]
+        missing_covars = setdiff(covars, names(dataset))
+        if !isempty(missing_covars)
+            throw(ArgumentError("Mahalanobis covariates missing: $missing_covars"))
+        end
     end
     # copy dataset
     df=deepcopy(dataset)
@@ -131,6 +144,13 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
     # filter out treated and untreated
     untrt=df[treatment_col.==false,:]
     trt=df[treatment_col.!=false,:]
+    # non-empty pools
+    if nrow(trt) == 0
+        throw(ArgumentError("No treated units found"))
+    end
+    if nrow(untrt) == 0  
+        throw(ArgumentError("No control units found"))
+    end
     # define std caliper
     if distance=="probability"
         std_caliper=caliper * std(logit.(df.distance))
@@ -228,6 +248,10 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
         X_ctrl = X[.!mask, :]
         # variance covariance matrix and regularization
         Σ = cov(X_ctrl, dims=1, corrected=false) + 1e-12*I
+        # Σ positive definite
+        if distance == "mahalanobis" && !isposdef(Σ)
+            throw(ArgumentError("Covariance matrix not positive definite"))
+        end
         # inverse
         Σ_inv = inv(Σ)
         # created filtered
@@ -270,7 +294,7 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                 # calculate distance between current treated and untreated
                 mahalanobis_dists = calculate_mahalanobis(X_trt[i, :], X_untrt, Σ_inv)
                 closest_idxs = partialsortperm(mahalanobis_dists, 1:ratio)
-                ctrl_ids = filtered[.!mask, :id][closest_idxs]
+                ctrl_ids = df[.!mask, :id][closest_idxs]
                 # push to matched
                 append!(matched, DataFrame(id=[trt.id[i]; ctrl_ids], cluster=fill(i, ratio+1)))
             end
@@ -316,5 +340,6 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
         sort!(dfmatched,:cluster)
     end    
     # sort based on cluster
-    return PSMResults(dfmatched, unmatched, distance, ratio, replacement)
+    return PSMResult(dfmatched, unmatched, distance, ratio, replacement)
+end
 end
