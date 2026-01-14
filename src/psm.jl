@@ -1,31 +1,58 @@
 """
-psm(data::DataFrame, formula::FormulaTerm; distance::String="probability", ratio::Int=1, replacement::Bool=false, caliper::Float64=Inf, order::String="largest", seed::Int=181299, discard::Bool=false)
+    psm(data::DataFrame, formula::FormulaTerm; 
+        distance::String="probability", ratio::Int=1, replacement::Bool=false,
+        caliper::Float64=Inf, order::String="largest", seed::Int=12345, discard::Bool=false)
 
-Performs propensity score matching (PSM) or Mahalanobis distance matching using nearest neighbor algorithm. Matches treated units to control units based on specified distance metric.
+Performs Propensity Score Matching (PSM) or Mahalanobis distance matching using a nearest-neighbor algorithm. Matches treated units to control units based on the specified distance metric.
 
 # Arguments
-* `data::DataFrame`: Input dataset containing treatment and covariates.
-* `formula::FormulaTerm`: Formula specifying treatment ~ covariates, use `@formula()` to create it.
-* `distance::String="probability"`: Distance metric. Options: `"probability"` (raw PS), `"logit"` (logit-transformed PS), `"mahalanobis"` (Mahalanobis on covariates).
-* `ratio::Int=1`: Number of controls matched per treated unit.
-* `replacement::Bool=false`: Whether to allow control units to be matched multiple times.
-* `caliper::Float64=Inf`: Caliper width in standard deviations of distance metric. `Inf` = no caliper.
-* `order::String="largest"`: Ordering of treated units for sequential matching. Options: `"largest"`, `"smallest"`, `"random"`.
-* `seed::Int=181299`: Random seed for `"random"` ordering.
-* `discard::Bool=false`: Whether to discard treated units without complete matches (`true`) or keep partial matches (`false`).
+- `data::DataFrame`: Input dataset containing the treatment variable and covariates.
+- `formula::FormulaTerm`: Formula specifying the treatment and covariates (e.g., `@formula(treatment ~ age + sex + smoke)`).
+- `distance::String="probability"`: Distance metric to use. Options:
+    - `"probability"`: predicted probability from the GLM model,
+    - `"logit"`: logit of the predicted probability,
+    - `"mahalanobis"`: Mahalanobis distance on covariates.
+- `ratio::Int=1`: Number of control units matched per treated unit.
+- `replacement::Bool=false`: Whether matched controls can be used for following treated units or not.
+- `caliper::Float64=Inf`: Maximum allowed distance (in standard deviations of the logit) for matching. `Inf` = no caliper.
+- `order::String="largest"`: Ordering of treated units when performing matching. This option is not valid when `distance="Mahalanobis" is selected`. Options:
+    - `"largest"`: treated units with largest distance first,
+    - `"smallest"`: treated units with smallest distance first,
+    - `"random"`: random order (seed is used for reproducibility).
+- `seed::Int=181299`: Random seed used when `order="random"`.
+- `discard::Bool=false`: If `true`, treated units without a complete set of matched controls are removed.
 
-# Output
-Returns a `PSMResult` struct containing:
-* `dataset::DataFrame`: Matched dataset with original columns + `id`, `cluster` (matching groups).
-* `unmatched::Vector{Int}`: IDs of unmatched treated units.
-* `distance::String`: Distance metric used.
-* `ratio::Int`: Matching ratio used.
-* `replacement::Bool`: Replacement setting.
-* `n_matched::Int`: Number of matched observations.
+# Returns
+A `PSMResult` struct containing:
+- `dataset::DataFrame`: Matched dataset, including original columns plus:
+    - `id`: unique row identifier,
+    - `cluster`: matching group identifier,
+    - `total_weight` (if `replacement=true`): normalized weight for each unit.
+- `unmatched::Vector{Int}`: IDs of treated units that could not be matched.
+- `distance::String`: Distance metric used.
+- `ratio::Int`: Matching ratio used.
+- `replacement::Bool`: Whether matching was performed with replacement.
+
+# Notes
+- Warnings may be thrown if:
+    - There are not enough control units to satisfy the `ratio`.
+    - Some treated units remain unmatched.
+- Caliper limits the allowable distance between treated and control units; unmatched treated units are added to `unmatched`.
+- With `replacement=true`, weights are computed to reflect multiple uses of controls and normalized so treated units sum to 1.
 
 # Example
 
+```julia
+using DataFrames, CausalTools
+
+psm_result = psm(df, @formula(treatment ~ age + sex + smoke), ratio=2, replacement=false)
+matched_data = psm_result.dataset
+unmatched_ids = psm_result.unmatched
+
+```
+
 """
+
 module PSM
 
 using DataFrames, StatsModels, GLM, StatsFuns, Random, StatsBase, LinearAlgebra
@@ -308,23 +335,25 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
     if replacement
         # calculate weights
         ## number of controls per cluster
-        cluster_size=combine(groupby(matched,:cluster),:cluster=>length=>:n_ctrl)
-        ## create cluster weights (ALL units get 1/n_controls)
-        matched.weight=1 ./ (cluster_size.n_ctrl[matched.cluster] .- 1)
+        cluster_size = combine(groupby(matched, :cluster),nrow => :n_ctrl)
+        leftjoin!(matched, cluster_size, on = :cluster)
+        matched.cluster_weight = 1 ./ (matched.n_ctrl .- 1)
         ## aggregate weights by ID (NO treated override)
-        weight_table = combine(groupby(matched, :id), :weight => sum => :total_weight)
+        weight_table = combine(groupby(matched, :id), :cluster_weight => sum => :weight)
         ## merge to initial dataset
         leftjoin!(matched, weight_table, on=:id)
         # delete cluster column
-        select!(matched,Not([:cluster,:weight]))
+        select!(matched,Not([:cluster,:cluster_weight]))
         # keep only unique rows
         matched_unique=unique(matched)
         # match with original dataset
         dfmatched=leftjoin(matched_unique,df, on=:id)
-        # MatchIt normalization (AFTER aggregation)
-        treated_mask = dfmatched[!, treatment] .== true
-        norm_factor = mean(dfmatched[treated_mask, :total_weight])
-        dfmatched[!, :total_weight] ./= norm_factor
+        # redefine weights for treated
+        dfmatched.weight=ifelse.(dfmatched.treatment .== true, 1 , dfmatched.weight)
+        # calculate normalized weights
+        treated_mask = dfmatched[!, treatment] .== false
+        norm_factor = mean(dfmatched[treated_mask, :weight])
+        dfmatched.nweight=ifelse.(dfmatched.treatment .== true, 1 , dfmatched.weight ./ norm_factor)
         # sort by id
         sort!(dfmatched,:id)
     end

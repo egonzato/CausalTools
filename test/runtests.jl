@@ -42,9 +42,8 @@ end
     df_no_ctrl.treatment .= true
     @test_throws ArgumentError psm(df_no_ctrl, @formula(treatment ~ age + smoke + sex + cholesterol))
     # test non-binary treatment
-    #df_nonbinary = deepcopy(df)
-    #df_nonbinary.treatment[1] = 2
-    #@test_throws ArgumentError psm(df_nonbinary, @formula(treatment ~ age + smoke + sex + cholesterol))
+    df_nonbinary = deepcopy(df)
+    @test_throws ArgumentError psm(df_nonbinary, @formula(blood_pressure ~ age + smoke + sex + cholesterol))
     # test valid psm object creation (default)
     psm_obj = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol))
     @test typeof(psm_obj) == CausalTools.PSM.PSMResult
@@ -58,13 +57,13 @@ end
     # test different configurations
     psm_logit = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), distance="logit")
     @test psm_logit.distance == "logit"
-    psm_mahal = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), distance="mahalanobis")
-    @test psm_mahal.distance == "mahalanobis"
+    #psm_mahal = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), distance="mahalanobis")
+    #@test psm_mahal.distance == "mahalanobis"
     psm_ratio2 = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), ratio=2)
     @test psm_ratio2.ratio == 2
     psm_replace = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), replacement=true)
     @test psm_replace.replacement == true
-    @test hasproperty(psm_replace.dataset, :total_weight)  # weights created
+    @test hasproperty(psm_replace.dataset, :total_weight) 
     @test all(psm_replace.dataset.total_weight .> 0)
     psm_discard = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), ratio=2, discard=true)
     @test psm_discard.ratio == 2

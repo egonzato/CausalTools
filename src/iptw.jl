@@ -33,12 +33,6 @@ CausalTools.IPTW.IPTWResult(1000×8 DataFrame)
   ⋮   │   ⋮      ⋮       ⋮          ⋮           ⋮            ⋮             ⋮         ⋮
   999 │ false   true  43.8346      228.986      false         116.383   0.362175  1.00811
  1000 │ false   true  59.0516      191.917      false         130.752   0.281389  0.894782
-
-
-plot(object_iptw)
-
-wdataset=object_iptw.dataset
-
 ```
 
 """
