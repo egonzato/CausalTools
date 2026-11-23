@@ -63,8 +63,8 @@ end
     @test psm_ratio2.ratio == 2
     psm_replace = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), replacement=true)
     @test psm_replace.replacement == true
-    @test hasproperty(psm_replace.dataset, :total_weight) 
-    @test all(psm_replace.dataset.total_weight .> 0)
+@test hasproperty(psm_replace.dataset, :weight)
+@test all(psm_replace.dataset.weight .> 0)
     psm_discard = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), ratio=2, discard=true)
     @test psm_discard.ratio == 2
     # test ordering effects (different results)
