@@ -94,6 +94,17 @@ end
 function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ratio=1,replacement=false,caliper::Float64=Inf,order="largest",seed=181299,discard=false)
     # Extract treatment column
     treatment=formula.lhs.sym
+    # treatment column exists, has no missing values and is true/false
+    if !(String(treatment) in names(dataset))
+        throw(ArgumentError("Treatment '$treatment' not found in dataset"))
+    end
+    if any(ismissing, dataset[!, treatment])
+        throw(ArgumentError("Treatment '$treatment' contains missing values"))
+    end
+    unique_vals = unique(dataset[!, treatment])
+    if !all(x -> x === true || x === false, unique_vals)
+        throw(ArgumentError("The treatment variable '$treatment' must contain only true or false values. Found: $(unique_vals)"))
+    end
     # warnings
       # ratio must be an integer ≥ 1
     if !(isa(ratio, Integer) && ratio ≥ 1)
@@ -125,10 +136,6 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
     if !(isa(seed, Integer))
         throw(ArgumentError("`seed` must be an integer. Got: $seed"))
     end
-    # treatment column exists
-    #if treatment ∉ names(dataset)
-    #    throw(ArgumentError("Treatment '$treatment' not found in dataset"))
-    #end
     # covariates exist
     if distance == "mahalanobis"
         covars = [t.sym for t in formula.rhs]
@@ -157,13 +164,8 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
             df=df[shuffle(1:nrow(df)),:]
         end
     end
-    # extract treatment column
+    # extract treatment column (after sorting, so the order matches df)
     treatment_col = df[!, treatment]
-    # check treatment column
-    unique_vals = unique(treatment_col)
-    if !all(x -> x === true || x === false, unique_vals)
-        throw(ArgumentError("The treatment variable '$treatment' must contain only true or false values. Found: $(unique_vals)"))
-    end
     # filter out treated and untreated
     untrt=df[treatment_col.==false,:]
     trt=df[treatment_col.!=false,:]
