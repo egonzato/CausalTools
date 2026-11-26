@@ -125,23 +125,19 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
     if !(isa(seed, Integer))
         throw(ArgumentError("`seed` must be an integer. Got: $seed"))
     end
-    # check forid column
-    if :id ∉ names(dataset)
-        dataset.id = 1:nrow(dataset)
-    end
     # treatment column exists
     #if treatment ∉ names(dataset)
     #    throw(ArgumentError("Treatment '$treatment' not found in dataset"))
     #end
     # covariates exist
-    #if distance == "mahalanobis"
-    #    covars = [t.sym for t in formula.rhs]
-    #    missing_covars = setdiff(covars, names(dataset))
-    #    if !isempty(missing_covars)
-    #        throw(ArgumentError("Mahalanobis covariates missing: $missing_covars"))
-    #    end
-    #end
-    # copy dataset
+    if distance == "mahalanobis"
+        covars = [t.sym for t in formula.rhs]
+        missing_covars = setdiff(string.(covars), names(dataset))
+        if !isempty(missing_covars)
+            throw(ArgumentError("Mahalanobis covariates missing: $missing_covars"))
+        end
+    end
+        # copy dataset
     df=deepcopy(dataset)
     df.id = 1:nrow(df)
     # compute distances and sort descending
