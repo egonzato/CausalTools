@@ -94,13 +94,7 @@ end
 function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ratio=1,replacement=false,caliper::Float64=Inf,order="largest",seed=181299,discard=false)
     # Extract treatment column
     treatment=formula.lhs.sym
-    # extract treatment column
-    treatment_col = df[!, treatment]
-    # check treatment column
-    unique_vals = unique(treatment_col)
-    if !all(x -> x === true || x === false, unique_vals)
-        throw(ArgumentError("The treatment variable '$treatment' must contain only true or false values. Found: $(unique_vals)"))
-    end
+    # warnings
       # ratio must be an integer ≥ 1
     if !(isa(ratio, Integer) && ratio ≥ 1)
         throw(ArgumentError("`ratio` must be an integer ≥ 1. Got: $ratio"))
@@ -162,6 +156,13 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
             Random.seed!(seed)
             df=df[shuffle(1:nrow(df)),:]
         end
+    end
+    # extract treatment column
+    treatment_col = df[!, treatment]
+    # check treatment column
+    unique_vals = unique(treatment_col)
+    if !all(x -> x === true || x === false, unique_vals)
+        throw(ArgumentError("The treatment variable '$treatment' must contain only true or false values. Found: $(unique_vals)"))
     end
     # filter out treated and untreated
     untrt=df[treatment_col.==false,:]
