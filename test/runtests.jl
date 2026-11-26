@@ -59,7 +59,7 @@ end
     @test psm_logit.distance == "logit"
     psm_mahal = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), distance="mahalanobis")
     @test psm_mahal.distance == "mahalanobis"
-        # psm must not modify the input data
+    # psm must not modify the input data
     df_before = deepcopy(df)
     psm(df, @formula(treatment ~ age + smoke + sex + cholesterol))
     @test df == df_before
