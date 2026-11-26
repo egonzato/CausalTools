@@ -89,4 +89,8 @@ end
     psm_keep_partial = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), ratio=5, discard=false)
     psm_discard_complete = psm(df, @formula(treatment ~ age + smoke + sex + cholesterol), ratio=5, discard=true)
     @test nrow(psm_keep_partial.dataset) >= nrow(psm_discard_complete.dataset)
+    # treatment name
+    df_renamed = rename(df, :treatment => :trt)
+    res = psm(df_renamed, @formula(trt ~ age + smoke + sex + cholesterol), replacement=true)
+    @test hasproperty(res.dataset, :weight)
 end

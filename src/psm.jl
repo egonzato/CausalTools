@@ -94,7 +94,13 @@ end
 function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ratio=1,replacement=false,caliper::Float64=Inf,order="largest",seed=181299,discard=false)
     # Extract treatment column
     treatment=formula.lhs.sym
-    # warnings
+    # extract treatment column
+    treatment_col = df[!, treatment]
+    # check treatment column
+    unique_vals = unique(treatment_col)
+    if !all(x -> x === true || x === false, unique_vals)
+        throw(ArgumentError("The treatment variable '$treatment' must contain only true or false values. Found: $(unique_vals)"))
+    end
       # ratio must be an integer ≥ 1
     if !(isa(ratio, Integer) && ratio ≥ 1)
         throw(ArgumentError("`ratio` must be an integer ≥ 1. Got: $ratio"))
@@ -156,13 +162,6 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
             Random.seed!(seed)
             df=df[shuffle(1:nrow(df)),:]
         end
-    end
-    # extract treatment column
-    treatment_col = df[!, treatment]
-    # check treatment column
-    unique_vals = unique(treatment_col)
-    if !all(x -> x === true || x === false, unique_vals)
-        throw(ArgumentError("The treatment variable '$treatment' must contain only true or false values. Found: $(unique_vals)"))
     end
     # filter out treated and untreated
     untrt=df[treatment_col.==false,:]
@@ -345,11 +344,11 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
         # match with original dataset
         dfmatched=leftjoin(matched_unique,df, on=:id)
         # redefine weights for treated
-        dfmatched.weight=ifelse.(dfmatched.treatment .== true, 1 , dfmatched.weight)
+        dfmatched.weight=ifelse.(dfmatched[!,treatment] .== true, 1 , dfmatched.weight)
         # calculate normalized weights
         treated_mask = dfmatched[!, treatment] .== false
         norm_factor = mean(dfmatched[treated_mask, :weight])
-        dfmatched.nweight=ifelse.(dfmatched.treatment .== true, 1 , dfmatched.weight ./ norm_factor)
+        dfmatched.nweight=ifelse.(dfmatched[!,treatment] .== true, 1 , dfmatched.weight ./ norm_factor)
         # sort by id
         sort!(dfmatched,:id)
     end
