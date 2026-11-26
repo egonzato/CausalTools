@@ -137,7 +137,7 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
             throw(ArgumentError("Mahalanobis covariates missing: $missing_covars"))
         end
     end
-        # copy dataset
+    # copy dataset
     df=deepcopy(dataset)
     df.id = 1:nrow(df)
     # compute distances and sort descending

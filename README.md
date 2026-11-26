@@ -2,10 +2,10 @@
 
 ### 0. Package setup
 
-- [ ] Rename `data/df.CSV` → `data/df.csv` (Linux/CI is case-sensitive)
-- [ ] Clean `Project.toml`: remove `Revise`, `Documenter` (and unused `Colors`, `IterTools`, `Distributions`, `CSV`) from `[deps]`; move test-only packages to `[extras]`
-- [ ] Fix `[compat]`: standard libraries pinned to 1.11 conflict with `julia = "1.6.7"` (either raise minimum Julia to 1.10 or relax the entries)
-- [ ] Remove `docs/build/` from git and add it to `.gitignore`
+- [X] Rename `data/df.CSV` → `data/df.csv` (Linux/CI is case-sensitive)
+- [X] Clean `Project.toml`: remove `Revise`, `Documenter` (and unused `Colors`, `IterTools`, `Distributions`, `CSV`) from `[deps]`; move test-only packages to `[extras]`
+- [X] Fix `[compat]`: standard libraries pinned to 1.11 conflict with `julia = "1.6.7"` (either raise minimum Julia to 1.10 or relax the entries)
+- [X] Remove `docs/build/` from git and add it to `.gitignore`
 - [ ] Get CI green
 - [ ] Consider moving plotting into a package extension, so `Plots` isn't a hard dependency
 
@@ -18,8 +18,8 @@
 - [ ] Check inputs (binary treatment, missing values) *before* fitting the GLM
 - [ ] Ratio > 1 without replacement: controls can be added to clusters whose treated unit was never matched; `unmatched` gets duplicates
 - [ ] "Ran out of controls" should stop all rounds, not just the inner loop
-- [X] Replacement branch: use the `treatment` variable instead of the hard-coded `:treatment`; agree on weight column names (`weight` / `nweight` vs `total_weight` in tests)
-- [ ] Re-enable the Mahalanobis test
+- [ ] Replacement branch: use the `treatment` variable instead of the hard-coded `:treatment`; agree on weight column names (`weight` / `nweight` vs `total_weight` in tests)
+- [X] Re-enable the Mahalanobis test
 
 **Features**
 
