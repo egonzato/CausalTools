@@ -186,6 +186,8 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
     matched=DataFrame(id=Int[], cluster=Int[])
     unmatched=[]
     pair=DataFrame(id=Int[], cluster=Int[])
+    # indicator for controls
+    controls_empty=false
     # search controls
     if distance in allowed_distances[1:2]
         if !replacement
@@ -195,7 +197,7 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                     filtered=copy(untrt)
                     # stop if ran out of controls
                     if nrow(untrt)==0
-                        @warn("Ran out of controls")
+                        controls_empty=true
                         break
                     end
                     # define filtered dataset if caliper exists
@@ -229,7 +231,9 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                     # delete controls that have been used
                     untrt=untrt[.!in.(untrt.id, Ref(filtered.id[1])), :]
                 end 
+                controls_empty && break
             end
+            controls_empty && @warn "Ran out of controls: some treated units have fewer than $ratio matches"
         else
             for i in 1:nrow(trt)
                 # define filtered at the beginning
@@ -292,7 +296,7 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                     X_untrt = X[.!current_mask, :]
                     # stop if untrt is empty
                     if size(X_untrt)[1]==0
-                        @warn("Ran out of controls")
+                        controls_empty=true
                         break
                     end
                     # calculate distance between current treated and untreated
@@ -310,7 +314,10 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                     # update filtered
                     filtered = filtered[filtered.id .≠ ctrl_id, :]
                 end
+                controls_empty && break
             end
+            controls_empty && @warn "Ran out of controls: some treated units have fewer than $ratio matches"
+
         else
             for i in 1:nrow(trt)
                 # define matrixes
