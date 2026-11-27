@@ -344,7 +344,7 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                     continue
                 end
                 n_ctrl = min(ratio, n_ok)          
-                closest_idxs = partialsortperm(mahalanobis_dists, 1:ratio)
+                closest_idxs = partialsortperm(mahalanobis_dists, 1:n_ctrl)
                 ctrl_ids = df[.!mask, :id][closest_idxs]
                 # push to matched
                 append!(matched, DataFrame(id=[trt.id[i]; ctrl_ids], cluster=fill(i, n_ctrl + 1)))

@@ -104,4 +104,6 @@ end
     m_cal_rep = psm(df, f, distance="mahalanobis", caliper=0.05, replacement=true)
     @test nrow(m_cal_rep.dataset) > 0
     @test !isempty(m_cal_rep.unmatched)
+    m_cal_rep2 = psm(df, f, distance="mahalanobis", caliper=0.05, replacement=true, ratio=2)
+    @test nrow(m_cal_rep2.dataset) > 0
 end

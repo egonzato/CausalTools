@@ -6,24 +6,24 @@
 - [X] Clean `Project.toml`: remove `Revise`, `Documenter` (and unused `Colors`, `IterTools`, `Distributions`, `CSV`) from `[deps]`; move test-only packages to `[extras]`
 - [X] Fix `[compat]`: standard libraries pinned to 1.11 conflict with `julia = "1.6.7"` (either raise minimum Julia to 1.10 or relax the entries)
 - [X] Remove `docs/build/` from git and add it to `.gitignore`
-- [ ] Get CI green
+- [X] Get CI green
 - [ ] Consider moving plotting into a package extension, so `Plots` isn't a hard dependency
 
 ### 1. Matching (`psm`)
 
 **Bug fixes**
 
-- [ ] Symbol vs String comparison with `names(df)`: Mahalanobis always throws, and `id` is added to the user's dataset
-- [ ] Never modify the input DataFrame
-- [ ] Check inputs (binary treatment, missing values) *before* fitting the GLM
+- [X] Symbol vs String comparison with `names(df)`: Mahalanobis always throws, and `id` is added to the user's dataset
+- [X] Never modify the input DataFrame
+- [X] Check inputs (binary treatment, missing values) *before* fitting the GLM
 - [ ] Ratio > 1 without replacement: controls can be added to clusters whose treated unit was never matched; `unmatched` gets duplicates
-- [ ] "Ran out of controls" should stop all rounds, not just the inner loop
-- [ ] Replacement branch: use the `treatment` variable instead of the hard-coded `:treatment`; agree on weight column names (`weight` / `nweight` vs `total_weight` in tests)
+- [X] "Ran out of controls" should stop all rounds, not just the inner loop
+- [X] Replacement branch: use the `treatment` variable instead of the hard-coded `:treatment`; agree on weight column names (`weight` / `nweight` vs `total_weight` in tests)
 - [X] Re-enable the Mahalanobis test
 
 **Features**
 
-- [ ] Caliper for Mahalanobis distance (raw caliper and/or within a PS caliper)
+- [X] Caliper for Mahalanobis distance (raw caliper and/or within a PS caliper)
 - [ ] `link` argument for the propensity model (logit / probit / cloglog), reusing `check_link`
 - [ ] Support categorical variables and interactions in Mahalanobis (use `modelmatrix`)
 - [ ] Ratio ≥ 1 (fixed) and, optionally, variable ratio
