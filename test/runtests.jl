@@ -93,4 +93,12 @@ end
     df_renamed = rename(df, :treatment => :trt)
     res = psm(df_renamed, @formula(trt ~ age + smoke + sex + cholesterol), replacement=true)
     @test hasproperty(res.dataset, :weight)
+    # caliper distance tests
+    f = @formula(treatment ~ age + smoke + sex + cholesterol)
+    @test psm(df, f, distance="logit", caliper=0.2) isa CausalTools.PSM.PSMResult
+    @test psm(df, f, distance="logit", caliper=0.2, replacement=true) isa CausalTools.PSM.PSMResult
+    m_nocal = psm(df, f, distance="mahalanobis")
+    m_cal   = psm(df, f, distance="mahalanobis", caliper=0.05)
+    @test nrow(m_cal.dataset) <= nrow(m_nocal.dataset)
+    @test !isempty(m_cal.unmatched)
 end

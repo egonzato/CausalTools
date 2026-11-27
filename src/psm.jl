@@ -207,13 +207,11 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                         controls_empty=true
                         break
                     end
-                    # define filtered dataset if caliper exists
-                    if caliper!=Inf 
-                        filtered.logit=logit.(filtered.distance)
-                        filtered.diff=abs.(filtered.logit .- logit.(trt.distance[i])) 
+                    # calculate difference
+                    filtered.diff = abs.(filtered.distance .- trt.distance[i])
+# caliper always on the logit of the PS
+                    if caliper != Inf
                         filtered = filtered[abs.(filtered.logit_ps .- trt.logit_ps[i]) .<= std_caliper, :]
-                    else 
-                        filtered.diff=abs.(filtered.distance .- trt.distance[i]) 
                     end
                     # sort by difference to get the two closest
                     sort!(filtered,[:diff])
@@ -241,13 +239,11 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
             for i in 1:nrow(trt)
                 # define filtered at the beginning
                 filtered=copy(untrt)
-                # define filtered dataset if caliper exists
-                if caliper!=Inf 
-                    filtered.logit=logit.(filtered.distance)
-                    filtered.diff=abs.(filtered.logit .- logit.(trt.distance[i])) 
+                # calculate difference
+                filtered.diff = abs.(filtered.distance .- trt.distance[i])
+                # caliper always on the logit of the PS
+                if caliper != Inf
                     filtered = filtered[abs.(filtered.logit_ps .- trt.logit_ps[i]) .<= std_caliper, :]
-                else 
-                    filtered.diff=abs.(filtered.distance .- trt.distance[i]) 
                 end
                 # sort by difference to get the two closest
                 sort!(filtered,[:diff])
@@ -300,6 +296,8 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                     end
                     # calculate distance between current treated and untreated
                     mahalanobis_dists = calculate_mahalanobis(X_trt[i, :], X_untrt, Σ_inv)
+                    # extract IDs from CURRENT filtered
+                    trt_patient_id = filtered[current_mask, :id][i]
                     # applying filtering
                     if caliper != Inf
                         lp_i = filtered[current_mask, :logit_ps][i]
@@ -313,8 +311,7 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                         push!(unmatched, trt_patient_id)
                         continue
                     end
-                    # extract IDs from CURRENT filtered
-                    trt_patient_id = filtered[current_mask, :id][i]
+                    # extract controls id
                     ctrl_id = filtered[.!current_mask, :id][idx_closest]
                     # append
                     if r == 1
