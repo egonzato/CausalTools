@@ -89,6 +89,13 @@ function calculate_mahalanobis(x, Y, Σ_inv)
     end
     return dists
 end
+# calculate caliper
+function calculate_caliper(dataset, formula)
+    model = glm(formula, dataset, Binomial())
+    logit = logit.(predict(model))
+    std_logit=std(logit)
+    return logit, std_logit
+end
 
 
 function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ratio=1,replacement=false,caliper::Float64=Inf,order="largest",seed=181299,discard=false)
@@ -152,6 +159,11 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
         df=calculate_probabilities(df, formula)
     elseif distance=="logit"
         df=calculate_logit(df, formula)
+    end
+    # add logit if calculate
+    if caliper != Inf
+        df.logit=calculate_caliper.caliper
+        std_caliper=caliper * calculate_caliper.std
     end
     # order dataset given a preference, if selected either probability or logit
     if distance in allowed_distances[1:2]
@@ -317,7 +329,6 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                 controls_empty && break
             end
             controls_empty && @warn "Ran out of controls: some treated units have fewer than $ratio matches"
-
         else
             for i in 1:nrow(trt)
                 # define matrixes
