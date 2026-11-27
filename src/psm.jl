@@ -92,9 +92,8 @@ end
 # calculate caliper
 function calculate_caliper(dataset, formula)
     model = glm(formula, dataset, Binomial())
-    logit = logit.(predict(model))
-    std_logit=std(logit)
-    return logit, std_logit
+    logit_ps = logit.(predict(model))
+    return logit_ps, std(logit_ps)
 end
 
 
@@ -161,9 +160,11 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
         df=calculate_logit(df, formula)
     end
     # add logit if calculate
+    # logit of the PS, used for the caliper
     if caliper != Inf
-        df.logit=calculate_caliper.caliper
-        std_caliper=caliper * calculate_caliper.std
+        logit_ps, sd_logit = calculate_caliper(df, formula)
+        df.logit_ps = logit_ps
+        std_caliper = caliper * sd_logit
     end
     # order dataset given a preference, if selected either probability or logit
     if distance in allowed_distances[1:2]
@@ -188,12 +189,6 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
     if nrow(untrt) == 0  
         throw(ArgumentError("No control units found"))
     end
-    # define std caliper
-    if distance=="probability"
-        std_caliper=caliper * std(logit.(df.distance))
-    elseif distance=="logit"
-        std_caliper=caliper * std((df.distance))
-    end
     # initialize matched dataset and used controls
     matched=DataFrame(id=Int[], cluster=Int[])
     unmatched=[]
@@ -213,14 +208,10 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                         break
                     end
                     # define filtered dataset if caliper exists
-                    if caliper!=Inf && distance=="probability"
+                    if caliper!=Inf 
                         filtered.logit=logit.(filtered.distance)
                         filtered.diff=abs.(filtered.logit .- logit.(trt.distance[i])) 
-                        filtered=filtered[filtered.diff .<= std_caliper,:]
-                    elseif caliper!=Inf && distance=="logit"
-                        filtered.logit=filtered.distance
-                        filtered.diff=abs.(filtered.logit .- trt.distance[i]) 
-                        filtered=filtered[filtered.diff .<= std_caliper,:]
+                        filtered = filtered[abs.(filtered.logit_ps .- trt.logit_ps[i]) .<= std_caliper, :]
                     else 
                         filtered.diff=abs.(filtered.distance .- trt.distance[i]) 
                     end
@@ -251,14 +242,10 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                 # define filtered at the beginning
                 filtered=copy(untrt)
                 # define filtered dataset if caliper exists
-                if caliper!=Inf && distance=="probability"
+                if caliper!=Inf 
                     filtered.logit=logit.(filtered.distance)
                     filtered.diff=abs.(filtered.logit .- logit.(trt.distance[i])) 
-                    filtered=filtered[filtered.diff .<= std_caliper,:]
-                elseif caliper!=Inf && distance=="logit"
-                    filtered.logit=filtered.distance
-                    filtered.diff=abs.(filtered.logit .- trt.distance[i]) 
-                    filtered=filtered[filtered.diff .<= std_caliper,:]
+                    filtered = filtered[abs.(filtered.logit_ps .- trt.logit_ps[i]) .<= std_caliper, :]
                 else 
                     filtered.diff=abs.(filtered.distance .- trt.distance[i]) 
                 end
@@ -313,7 +300,19 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                     end
                     # calculate distance between current treated and untreated
                     mahalanobis_dists = calculate_mahalanobis(X_trt[i, :], X_untrt, Σ_inv)
+                    # applying filtering
+                    if caliper != Inf
+                        lp_i = filtered[current_mask, :logit_ps][i]
+                        outside = abs.(filtered[.!current_mask, :logit_ps] .- lp_i) .> std_caliper
+                        mahalanobis_dists[outside] .= Inf
+                    end
+                    # get closest id
                     idx_closest = argmin(mahalanobis_dists)
+                    # if no controls are found
+                    if isinf(mahalanobis_dists[idx_closest])
+                        push!(unmatched, trt_patient_id)
+                        continue
+                    end
                     # extract IDs from CURRENT filtered
                     trt_patient_id = filtered[current_mask, :id][i]
                     ctrl_id = filtered[.!current_mask, :id][idx_closest]
