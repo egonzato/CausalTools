@@ -14,7 +14,7 @@ Performs Propensity Score Matching (PSM) or Mahalanobis distance matching using 
     - `"mahalanobis"`: Mahalanobis distance on covariates.
 - `ratio::Int=1`: Number of control units matched per treated unit.
 - `replacement::Bool=false`: Whether matched controls can be used for following treated units or not.
-- `caliper::Float64=Inf`: Maximum allowed distance (in standard deviations of the logit) for matching. `Inf` = no caliper.
+- `caliper::Float64=Inf`: Maximum allowed difference in the logit of the propensity score, in standard deviations of the logit. Always applied on the logit of the PS, also when distance="mahalanobis". Inf = no caliper; 0.2 is a common choice.
 - `order::String="largest"`: Ordering of treated units when performing matching. This option is not valid when `distance="Mahalanobis" is selected`. Options:
     - `"largest"`: treated units with largest distance first,
     - `"smallest"`: treated units with smallest distance first,
@@ -330,12 +330,24 @@ function psm(dataset::DataFrame, formula::FormulaTerm; distance="probability",ra
                 # define matrixes
                 X_trt = X[mask, :]
                 X_untrt = X[.!mask, :]
-                # calculate distance between current treated and untreated
+                # calculate mahalnobis distance
                 mahalanobis_dists = calculate_mahalanobis(X_trt[i, :], X_untrt, Σ_inv)
+                # calculate distance between current treated and untreated
+                if caliper != Inf
+                    outside = abs.(df.logit_ps[.!mask] .- df.logit_ps[mask][i]) .> std_caliper
+                    mahalanobis_dists[outside] .= Inf
+                end
+                # number of controls inside the caliper
+                n_ok = count(isfinite, mahalanobis_dists)
+                if n_ok == 0
+                    push!(unmatched, trt.id[i])
+                    continue
+                end
+                n_ctrl = min(ratio, n_ok)          
                 closest_idxs = partialsortperm(mahalanobis_dists, 1:ratio)
                 ctrl_ids = df[.!mask, :id][closest_idxs]
                 # push to matched
-                append!(matched, DataFrame(id=[trt.id[i]; ctrl_ids], cluster=fill(i, ratio+1)))
+                append!(matched, DataFrame(id=[trt.id[i]; ctrl_ids], cluster=fill(i, n_ctrl + 1)))
             end
         end
     end
